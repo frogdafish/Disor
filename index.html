@@ -1,0 +1,558 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Discord</title>
+  <style>
+    body { margin:0; font-family:'Segoe UI',sans-serif; background:#36393f; color:white; display:flex; height:100vh; }
+    .sidebar { width:240px; background:#2f3136; padding:15px; display:flex; flex-direction:column; }
+    .sidebar h3 { color:#8e9297; font-size:12px; margin-bottom:10px; text-transform:uppercase; }
+    .channel { padding:6px 10px; border-radius:4px; cursor:pointer; color:#b9bbbe; transition:.15s; }
+    .channel:hover { background:#40444b; color:white; }
+    .edit-profile { margin-top:auto; background:#40444b; text-align:center; padding:8px; border-radius:4px; cursor:pointer; }
+    .edit-profile:hover { background:#5865f2; }
+    .chat { flex:1; display:flex; flex-direction:column; }
+    .header { padding:15px; background:#2f3136; font-weight:bold; border-bottom:1px solid #202225; }
+    .messages { flex:1; padding:20px; overflow-y:auto; }
+    .message { 
+      margin-bottom:10px; 
+      position: relative;
+      padding-right: 30px;
+      display: flex;
+      align-items: flex-start;
+    }
+    .username { font-weight:bold; cursor:pointer; color:#7289da; }
+    .username:hover { text-decoration:underline; }
+    .message-controls {
+      position: absolute;
+      right: 0;
+      top: 0;
+      opacity: 0;
+      transition: opacity 0.2s;
+      display: flex;
+      gap: 5px;
+    }
+    .message:hover .message-controls { opacity: 1; }
+    .mute-btn {
+      background: #40444b;
+      border: none;
+      border-radius: 3px;
+      color: #b9bbbe;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .mute-btn:hover { background: #5865f2; color: white; }
+    .muted { opacity: 0.5; }
+    .input-area { padding:10px 15px; background:#40444b; display:flex; }
+    input { flex:1; padding:10px; border-radius:4px; border:none; background:#303339; color:white; }
+    button { margin-left:10px; padding:10px 16px; border-radius:4px; border:none; background:#7289da; color:white; cursor:pointer; }
+    .typing-indicator { font-size:12px; color:#b9bbbe; margin-left:5px; font-style:italic; }
+    
+    /* Password Popup */
+    .password-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.9);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .password-popup {
+      background: #36393f;
+      padding: 40px;
+      border-radius: 8px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+    .password-popup h2 { margin: 0 0 20px 0; color: white; }
+    .password-popup input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 4px;
+      border: none;
+      background: #40444b;
+      color: white;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+    .password-popup button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 4px;
+      border: none;
+      background: #7289da;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .password-popup button:hover { background: #5865f2; }
+    .password-error { color: #f04747; margin-top: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <!-- Password Popup -->
+  <div id="passwordOverlay" class="password-overlay">
+    <div class="password-popup">
+      <h2>Enter Password to Access</h2>
+      <input type="password" id="passwordInput" placeholder="Password...">
+      <button id="submitPasswordBtn">Submit</button>
+      <div id="passwordError" class="password-error" style="display:none;"></div>
+    </div>
+  </div>
+
+
+  <div class="sidebar" style="display:none;" id="mainContent">
+    <h3>TEXT CHANNELS</h3>
+    <div class="channel" onclick="switchChannel('general')"># general</div>
+    <div class="channel" onclick="switchChannel('gaming')"># gaming</div>
+    <div class="channel" onclick="switchChannel('coding')"># coding</div>
+    <div class="channel" onclick="switchChannel('stats')"># stats</div>
+    <div class="channel" onclick="switchChannel('shop')"># shop</div>
+    <div class="edit-profile" onclick="openProfileEditor()">⚙ Edit Profile</div>
+  </div>
+
+
+  <div class="chat" style="display:none;" id="chatContent">
+    <div class="header" id="channelName"># general</div>
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+      <input id="messageInput" placeholder="Message #general">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+    <div id="typingIndicator" class="typing-indicator"></div>
+  </div>
+
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+
+    const PASSWORD = "frogisafish";
+    let supabase;
+    let username;
+    let currentChannel = "general";
+
+
+    function checkPassword() {
+      const input = document.getElementById("passwordInput");
+      const error = document.getElementById("passwordError");
+      const password = input.value.trim();
+      
+      if (password === PASSWORD) {
+        document.getElementById("passwordOverlay").style.display = "none";
+        document.getElementById("mainContent").style.display = "flex";
+        document.getElementById("chatContent").style.display = "flex";
+        initApp();
+      } else {
+        error.textContent = "Incorrect password! (Hint: frogisafish)";
+        error.style.display = "block";
+        input.value = "";
+        input.focus();
+      }
+    }
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.getElementById("passwordInput");
+      const submitBtn = document.getElementById("submitPasswordBtn");
+      
+      passwordInput.focus();
+      
+      submitBtn.addEventListener('click', checkPassword);
+      passwordInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          checkPassword();
+        }
+      });
+    });
+
+
+    async function initApp() {
+      supabase = createClient(
+        "https://adrusttuicogkeplrcac.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkcnVzdHR1aWNvZ2tlcGxyY2FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDQxMjUsImV4cCI6MjA4NjUyMDEyNX0.XnfYHjY0lR5JMBX855xsOtiC44oOW_bRtZbGmSo8ZB0"
+      );
+
+
+      username = localStorage.getItem("username") || "";
+      
+      if (!username) {
+        while (!username) {
+          username = prompt("Enter username:");
+        }
+        localStorage.setItem("username", username);
+      }
+
+
+      await supabase.from("profiles").upsert({
+        username,
+        bio: "",
+        xp: 0,
+        level: 1,
+        coins: 0,
+        owned_snake: false,
+        can_chat: true
+      });
+
+
+      window.supabase = supabase;
+      window.username = username;
+      window.currentChannel = currentChannel;
+
+
+      await loadMessagesForChannel("general");
+    }
+
+
+    // SIMPLIFIED - No async issues with emojis
+    window.toggleMute = async function(targetUser) {
+      console.log("Toggling mute for:", targetUser);
+      
+      // Get current status first
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("can_chat")
+        .eq("username", targetUser)
+        .maybeSingle();
+
+
+      console.log("Current can_chat:", profile?.can_chat);
+      
+      const newCanChat = !(profile?.can_chat === true); // Toggle logic: true->false, false->true, null->false
+      
+      console.log("Setting to:", newCanChat);
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({ 
+          can_chat: newCanChat 
+        })
+        .eq("username", targetUser);
+
+
+      if (error) {
+        console.error("Database error:", error);
+        alert("Failed to toggle mute: " + error.message);
+        return;
+      }
+
+
+      console.log("Successfully updated to:", newCanChat);
+      
+      // Refresh messages
+      await loadMessagesForChannel(currentChannel);
+    };
+
+
+    async function loadMessagesForChannel(channel) {
+      const container = document.getElementById("messages");
+      container.innerHTML = "Loading messages...";
+
+
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("channel", channel)
+        .order("created_at", { ascending: true });
+
+
+      container.innerHTML = "";
+
+
+      if (error || !data) {
+        const div = document.createElement("div");
+        div.className = "message";
+        div.innerHTML = `<span class="username">System</span> Could not load messages.`;
+        container.appendChild(div);
+        return;
+      }
+
+
+      // Process messages one by one
+      for (const msg of data) {
+        const canChat = await getCanChatStatus(msg.username);
+        createMessageElement(container, msg.username, msg.text, !canChat);
+      }
+    }
+
+
+    async function getCanChatStatus(user) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("can_chat")
+        .eq("username", user)
+        .maybeSingle();
+      return data ? data.can_chat : true;
+    }
+
+
+    function createMessageElement(container, usernameText, messageText, isMuted) {
+      const div = document.createElement("div");
+      div.className = `message ${isMuted ? 'muted' : ''}`;
+      
+      const buttonIcon = isMuted ? '🔊' : '🔇';
+      const buttonTitle = isMuted ? `Unmute ${usernameText}` : `Mute ${usernameText}`;
+      
+      div.innerHTML = `
+        <span class="username">${usernameText}</span> ${messageText}
+        <div class="message-controls">
+          <button class="mute-btn" onclick="toggleMute('${usernameText}')">${buttonIcon}</button>
+        </div>
+      `;
+      
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+
+    window.sendMessage = async function() {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("can_chat")
+        .eq("username", username)
+        .maybeSingle();
+
+
+      if (!profile?.can_chat) {
+        alert("You have been muted and cannot send messages!");
+        return;
+      }
+
+
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+
+      if (currentChannel === "stats" || currentChannel === "shop") {
+        alert("You cannot send messages in this channel!");
+        return;
+      }
+
+
+      // Add immediately, then save to DB
+      createMessageElement(document.getElementById("messages"), username, text, false);
+
+
+      try {
+        await supabase.from("messages").insert({
+          channel: currentChannel,
+          username,
+          text
+        });
+      } catch (e) {
+        console.error("Failed to save message:", e);
+      }
+
+
+      input.value = "";
+    };
+
+
+    window.switchChannel = async function(channel) {
+      currentChannel = channel;
+      document.getElementById("channelName").innerText =
+        channel === "stats" ? "# stats" :
+        channel === "shop" ? "# shop" :
+        "# " + channel;
+
+
+      const input = document.getElementById("messageInput");
+      input.placeholder =
+        channel === "stats" || channel === "shop"
+          ? ""
+          : "Message #" + channel;
+
+
+      if (channel === "stats") {
+        loadStats();
+      } else if (channel === "shop") {
+        loadShop();
+      } else {
+        await loadMessagesForChannel(channel);
+      }
+    };
+
+
+    window.loadStats = async function() {
+      const container = document.getElementById("messages");
+      container.innerHTML = "Loading stats...";
+
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("username,xp,level,coins,owned_snake,can_chat")
+        .eq("username", username)
+        .maybeSingle();
+
+
+      container.innerHTML = "";
+
+
+      if (!profile) {
+        createMessageElement(container, "System", "Could not load stats.", false);
+        return;
+      }
+
+
+      const xpToNext = profile.level * 100 - profile.xp;
+      const chatStatus = profile.can_chat ? "Yes" : "No (Muted)";
+      
+      const statsDiv = document.createElement("div");
+      statsDiv.className = "message";
+      statsDiv.innerHTML = `
+        <strong>Username:</strong> ${profile.username}<br>
+        <strong>Level:</strong> ${profile.level}<br>
+        <strong>XP:</strong> ${profile.xp}<br>
+        <strong>XP to next level:</strong> ${xpToNext}<br>
+        <strong>Coins:</strong> ${profile.coins}<br>
+        <strong>Can Chat:</strong> ${chatStatus}<br>
+        <strong>Owns Snake:</strong> ${profile.owned_snake ? "Yes" : "No"}
+      `;
+      container.appendChild(statsDiv);
+    };
+
+
+    window.loadShop = async function() {
+      const container = document.getElementById("messages");
+      container.innerHTML = "Loading shop...";
+
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("coins, owned_snake")
+        .eq("username", username)
+        .maybeSingle();
+
+
+      container.innerHTML = "";
+
+
+      const snakeDiv = document.createElement("div");
+      snakeDiv.className = "message";
+
+
+      if (profile?.owned_snake) {
+        snakeDiv.innerHTML = `
+          <strong>Snake Game</strong><br>
+          Play the classic Snake game!<br>
+          <button id="playSnakeBtn">Play Snake (Fullscreen)</button>
+        `;
+        container.appendChild(snakeDiv);
+        document.getElementById("playSnakeBtn").onclick = openSnakeFullscreen;
+      } else {
+        snakeDiv.innerHTML = `
+          <strong>Snake Game</strong><br>
+          Play the classic Snake game! Cost: 25 coins<br>
+          <button id="buySnakeBtn">Buy Snake (25 coins)</button>
+        `;
+        container.appendChild(snakeDiv);
+        document.getElementById("buySnakeBtn").onclick = buySnake;
+      }
+    };
+
+
+    window.buySnake = async function() {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("coins, owned_snake")
+        .eq("username", username)
+        .maybeSingle();
+      
+      if (!p || p.owned_snake || p.coins < 25) {
+        alert(p?.owned_snake ? "You already own Snake!" : "You need 25 coins!");
+        await loadShop();
+        return;
+      }
+
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          coins: p.coins - 25,
+          owned_snake: true
+        })
+        .eq("username", username);
+
+
+      if (error) {
+        alert("Purchase failed.");
+        return;
+      }
+
+
+      alert("You bought Snake! Opening...");
+      openSnakeFullscreen();
+      await loadShop();
+    };
+
+
+    window.openSnakeFullscreen = function() {
+      let overlay = document.getElementById("snake-fullscreen-overlay");
+      if (overlay) return;
+
+
+      overlay = document.createElement("div");
+      overlay.id = "snake-fullscreen-overlay";
+      overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.9); z-index: 9999; overflow: hidden;
+      `;
+
+
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "❌";
+      closeBtn.style.cssText = `
+        position: absolute; top: 8px; right: 15px; width: 40px; height: 40px;
+        border-radius: 50%; border: none; cursor: pointer; background: #7289da;
+        color: white; font-size: 20px; font-weight: bold; z-index: 10000;
+        display: flex; align-items: center; justify-content: center;
+      `;
+      closeBtn.onclick = () => document.body.removeChild(overlay);
+
+
+      const frame = document.createElement("iframe");
+      frame.src = "https://frogdafish.github.io/Snek";
+      frame.style.cssText = `
+        position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+        border: none; display: block;
+      `;
+
+
+      overlay.appendChild(closeBtn);
+      overlay.appendChild(frame);
+      document.body.appendChild(overlay);
+    };
+
+
+    window.openProfileEditor = async function() {
+      const newUsername = prompt("Enter your new username:");
+      if (!newUsername) return;
+
+
+      await supabase.from("profiles").update({ username: newUsername }).eq("username", username);
+      localStorage.setItem("username", newUsername);
+      username = newUsername;
+      alert("Username updated! Reloading...");
+      location.reload();
+    };
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const messageInput = document.getElementById('messageInput');
+      if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') sendMessage();
+        });
+      }
+    });
+  </script>
+</body>
+</html>
