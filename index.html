@@ -17,7 +17,7 @@
     .message { 
       margin-bottom:10px; 
       position: relative;
-      padding-right: 50px;
+      padding-right: 30px;
       display: flex;
       align-items: flex-start;
     }
@@ -33,7 +33,7 @@
       gap: 5px;
     }
     .message:hover .message-controls { opacity: 1; }
-    .mute-btn, .delete-btn {
+    .mute-btn {
       background: #40444b;
       border: none;
       border-radius: 3px;
@@ -43,7 +43,7 @@
       cursor: pointer;
       transition: all 0.15s;
     }
-    .mute-btn:hover, .delete-btn:hover { background: #5865f2; color: white; }
+    .mute-btn:hover { background: #5865f2; color: white; }
     .muted { opacity: 0.5; }
     .input-area { padding:10px 15px; background:#40444b; display:flex; }
     input { flex:1; padding:10px; border-radius:4px; border:none; background:#303339; color:white; }
@@ -94,6 +94,51 @@
     }
     .password-popup button:hover { background: #5865f2; }
     .password-error { color: #f04747; margin-top: 10px; font-size: 14px; }
+
+
+    /* Shop improvements */
+    .shop-item {
+      background: #40444b;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border-left: 4px solid #7289da;
+    }
+    .shop-item h3 {
+      margin: 0 0 10px 0;
+      color: #fff;
+    }
+    .shop-item p {
+      margin: 5px 0;
+      color: #b9bbbe;
+    }
+    .shop-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+    .buy-btn { background: #5865f2; color: white; }
+    .buy-btn:hover { background: #4752c4; }
+    .buy-btn:disabled { background: #36393f; cursor: not-allowed; }
+    .play-btn { background: #43b581; color: white; }
+    .play-btn:hover { background: #357a5a; }
+
+
+    /* Compact text stats */
+    .stats-text {
+      font-size: 16px;
+      line-height: 1.3;
+      color: #dcddde;
+    }
+    .stats-highlight {
+      color: #7289da;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -139,7 +184,7 @@
     let username;
     let currentChannel = "general";
     let channelSubscription = null;
-    let isTextChannel = true; // Track if we're in a text channel
+    let messageCanChatCache = new Map(); // Cache for can_chat status
 
 
     function checkPassword() {
@@ -210,25 +255,18 @@
 
 
       await loadMessagesForChannel("general");
+      setupRealtime();
     }
 
 
-    // FIXED REALTIME - Only updates text channels
     function setupRealtime() {
-      // Unsubscribe from previous subscription
       if (channelSubscription) {
         supabase.removeChannel(channelSubscription);
       }
 
 
-      // Only setup realtime for text channels (not stats/shop)
-      if (!isTextChannel || !['general', 'gaming', 'coding'].includes(currentChannel)) {
-        return;
-      }
-
-
       channelSubscription = supabase
-        .channel(`messages-${currentChannel}`)
+        .channel('messages')
         .on('postgres_changes', 
           { 
             event: '*', 
@@ -237,26 +275,29 @@
             filter: `channel=eq.${currentChannel}`
           }, 
           (payload) => {
-            console.log('Real-time update:', payload);
-            
-            // Only process if we're still in the same channel
-            if (currentChannel === payload.new?.channel || currentChannel === payload.old?.channel) {
-              if (payload.eventType === 'INSERT') {
+            console.log('Real-time message update for', currentChannel + ':', payload);
+            if (payload.eventType === 'INSERT') {
+              if (payload.new.channel === currentChannel) {
                 addNewMessage(payload.new);
-              } else if (payload.eventType === 'DELETE') {
+              }
+            } else if (payload.eventType === 'DELETE') {
+              if (payload.old.channel === currentChannel) {
                 removeMessage(payload.old.id);
               }
             }
           }
         )
-        .subscribe((status) => {
-          console.log('Subscription status:', status, 'for channel:', currentChannel);
-        });
+        .subscribe();
     }
 
 
     async function addNewMessage(newMessage) {
-      const canChat = await getCanChatStatus(newMessage.username);
+      if (newMessage.channel !== currentChannel) {
+        console.log('Ignoring message from different channel:', newMessage.channel);
+        return;
+      }
+      
+      const canChat = messageCanChatCache.get(newMessage.username) ?? await getCanChatStatus(newMessage.username);
       createMessageElement(document.getElementById("messages"), newMessage.username, newMessage.text, !canChat, newMessage.id);
     }
 
@@ -290,13 +331,14 @@
 
 
       if (error) {
+        console.error("Database error:", error);
         alert("Failed to toggle mute: " + error.message);
         return;
       }
 
 
-      // Refresh current text channel to show updated mute status
-      if (isTextChannel) {
+      messageCanChatCache.set(targetUser, newCanChat); // Update cache
+      if (['general', 'gaming', 'coding'].includes(currentChannel)) {
         await loadMessagesForChannel(currentChannel);
       }
     };
@@ -308,7 +350,9 @@
         .select("can_chat")
         .eq("username", user)
         .maybeSingle();
-      return data ? data.can_chat : true;
+      const canChat = data ? data.can_chat : true;
+      messageCanChatCache.set(user, canChat); // Cache result
+      return canChat;
     }
 
 
@@ -323,7 +367,6 @@
         <span class="username">${usernameText}</span> ${messageText}
         <div class="message-controls">
           <button class="mute-btn" onclick="toggleMute('${usernameText}')">${buttonIcon}</button>
-          <button class="delete-btn" onclick="deleteMessage('${usernameText}', '${messageId}')" title="Delete">🗑️</button>
         </div>
       `;
       
@@ -335,32 +378,15 @@
     async function loadMessagesForChannel(channel) {
       const container = document.getElementById("messages");
       
-      // Set channel state
-      currentChannel = channel;
-      isTextChannel = !['stats', 'shop'].includes(channel);
-      
-      document.getElementById("channelName").innerText =
-        channel === "stats" ? "# stats" :
-        channel === "shop" ? "# shop" :
-        "# " + channel;
-
-
-      const input = document.getElementById("messageInput");
-      input.placeholder = isTextChannel ? `Message #${channel}` : "";
-
-
-      if (!isTextChannel) {
-        // Special channels - no realtime
-        if (channel === "stats") {
-          loadStats();
-        } else if (channel === "shop") {
-          loadShop();
-        }
+      if (channel === "stats") {
+        loadStats();
         return;
       }
-
-
-      // Text channels - load messages + setup realtime
+      if (channel === "shop") {
+        loadShop();
+        return;
+      }
+      
       container.innerHTML = "Loading messages...";
 
 
@@ -381,43 +407,37 @@
       }
 
 
-      for (const msg of data) {
-        const canChat = await getCanChatStatus(msg.username);
+      // ✅ FIXED: Get ALL unique usernames FIRST (one query)
+      const uniqueUsernames = [...new Set(data.map(msg => msg.username))];
+      
+      // Get can_chat status for ALL users simultaneously
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("username, can_chat")
+        .in("username", uniqueUsernames);
+
+
+      // Create lookup map for instant access
+      const canChatMap = new Map();
+      profiles?.forEach(profile => {
+        canChatMap.set(profile.username, profile.can_chat);
+        messageCanChatCache.set(profile.username, profile.can_chat);
+      });
+
+
+      // Create ALL messages instantly (no sequential awaits)
+      data.forEach(msg => {
+        const canChat = canChatMap.get(msg.username) ?? true;
         createMessageElement(container, msg.username, msg.text, !canChat, msg.id);
-      }
+      });
 
 
+      container.scrollTop = container.scrollHeight;
       setupRealtime();
     }
 
 
-    window.deleteMessage = async function(senderUsername, messageId) {
-      if (username !== senderUsername) {
-        alert("You can only delete your own messages!");
-        return;
-      }
-
-
-      if (confirm("Delete this message?")) {
-        const { error } = await supabase
-          .from("messages")
-          .delete()
-          .eq("id", messageId);
-        
-        if (error) {
-          alert("Failed to delete message: " + error.message);
-        }
-      }
-    };
-
-
     window.sendMessage = async function() {
-      if (!isTextChannel) {
-        alert("You cannot send messages in this channel!");
-        return;
-      }
-
-
       const { data: profile } = await supabase
         .from("profiles")
         .select("can_chat")
@@ -436,37 +456,60 @@
       if (!text) return;
 
 
+      if (currentChannel === "stats" || currentChannel === "shop") {
+        alert("You cannot send messages in this channel!");
+        return;
+      }
+
+
       try {
-        await supabase.from("messages").insert({
+        const { data, error } = await supabase.from("messages").insert({
           channel: currentChannel,
           username,
           text
-        });
-        input.value = "";
+        }).select();
+
+
+        if (!error && data[0]) {
+          input.value = "";
+        }
       } catch (e) {
         console.error("Failed to save message:", e);
+        createMessageElement(document.getElementById("messages"), username, text, false);
+        input.value = "";
       }
     };
 
 
-    window.switchChannel = function(channel) {
-      loadMessagesForChannel(channel);
+    window.switchChannel = async function(channel) {
+      currentChannel = channel;
+      document.getElementById("channelName").innerText =
+        channel === "stats" ? "# stats" :
+        channel === "shop" ? "# shop" :
+        "# " + channel;
+
+
+      const input = document.getElementById("messageInput");
+      input.placeholder =
+        channel === "stats" || channel === "shop"
+          ? ""
+          : "Message #" + channel;
+
+
+      await loadMessagesForChannel(channel);
     };
 
 
     window.loadStats = async function() {
       const container = document.getElementById("messages");
-      container.innerHTML = "Loading stats...";
+      container.innerHTML = "";
 
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("username,xp,level,coins,owned_snake,can_chat")
+        .select("username,xp,level,coins")
         .eq("username", username)
         .maybeSingle();
-
-
-      container.innerHTML = "";
 
 
       if (!profile) {
@@ -476,20 +519,18 @@
 
 
       const xpToNext = profile.level * 100 - profile.xp;
-      const chatStatus = profile.can_chat ? "Yes" : "No (Muted)";
       
-      const statsDiv = document.createElement("div");
-      statsDiv.className = "message";
-      statsDiv.innerHTML = `
-        <strong>Username:</strong> ${profile.username}<br>
-        <strong>Level:</strong> ${profile.level}<br>
-        <strong>XP:</strong> ${profile.xp}<br>
-        <strong>XP to next level:</strong> ${xpToNext}<br>
-        <strong>Coins:</strong> ${profile.coins}<br>
-        <strong>Can Chat:</strong> ${chatStatus}<br>
-        <strong>Owns Snake:</strong> ${profile.owned_snake ? "Yes" : "No"}
+      const statsText = document.createElement("div");
+      statsText.className = "stats-text";
+      statsText.innerHTML = `
+<span class="stats-highlight">Username:</span> ${profile.username}<br>
+<span class="stats-highlight">Level:</span> ${profile.level}<br>
+<span class="stats-highlight">XP:</span> ${profile.xp}<br>
+<span class="stats-highlight">XP to Next Level:</span> ${xpToNext}<br>
+<span class="stats-highlight">Coins:</span> ${profile.coins}
       `;
-      container.appendChild(statsDiv);
+      
+      container.appendChild(statsText);
     };
 
 
@@ -508,25 +549,37 @@
       container.innerHTML = "";
 
 
+      if (!profile) {
+        createMessageElement(container, "System", "Could not load shop.", false);
+        return;
+      }
+
+
       const snakeDiv = document.createElement("div");
-      snakeDiv.className = "message";
-
-
-      if (profile?.owned_snake) {
+      snakeDiv.className = "shop-item";
+      
+      if (profile.owned_snake) {
         snakeDiv.innerHTML = `
-          <strong>Snake Game</strong><br>
-          Play the classic Snake game!<br>
-          <button id="playSnakeBtn">Play Snake (Fullscreen)</button>
+          <h3>🐍 Snake Game</h3>
+          <p>Play the classic Snake game!</p>
+          <button id="playSnakeBtn" class="shop-btn play-btn">Play Snake (Fullscreen)</button>
         `;
-        container.appendChild(snakeDiv);
-        document.getElementById("playSnakeBtn").onclick = openSnakeFullscreen;
       } else {
         snakeDiv.innerHTML = `
-          <strong>Snake Game</strong><br>
-          Play the classic Snake game! Cost: 25 coins<br>
-          <button id="buySnakeBtn">Buy Snake (25 coins)</button>
+          <h3>🐍 Snake Game</h3>
+          <p>Play the classic Snake game!</p>
+          <p><strong>Cost: ${profile.coins >= 25 ? '25 coins' : `Need ${25 - profile.coins} more coins`}</strong></p>
+          <button id="buySnakeBtn" class="shop-btn buy-btn" ${profile.coins < 25 ? 'disabled' : ''}>
+            ${profile.coins >= 25 ? 'Buy Snake (25 coins)' : 'Not enough coins'}
+          </button>
         `;
-        container.appendChild(snakeDiv);
+      }
+      
+      container.appendChild(snakeDiv);
+      
+      if (profile.owned_snake) {
+        document.getElementById("playSnakeBtn").onclick = openSnakeFullscreen;
+      } else {
         document.getElementById("buySnakeBtn").onclick = buySnake;
       }
     };
@@ -541,7 +594,7 @@
       
       if (!p || p.owned_snake || p.coins < 25) {
         alert(p?.owned_snake ? "You already own Snake!" : "You need 25 coins!");
-        loadShop();
+        await loadShop();
         return;
       }
 
@@ -563,7 +616,7 @@
 
       alert("You bought Snake! Opening...");
       openSnakeFullscreen();
-      loadShop();
+      await loadShop();
     };
 
 
