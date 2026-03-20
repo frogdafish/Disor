@@ -24,9 +24,123 @@
     button { margin-left:10px; padding:10px 16px; border-radius:4px; border:none; background:#7289da; color:white; cursor:pointer; }
     .typing-indicator { font-size:12px; color:#b9bbbe; margin-left:5px; font-style:italic; }
     .mute-status { color: #ff6b6b; font-weight: bold; }
+
+
+    /* PASSWORD POPUP OVERLAY */
+    #password-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    #password-box {
+      background: #2f3136;
+      padding: 20px 24px;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      width: 320px;
+      max-width: 90vw;
+      text-align: center;
+    }
+    #password-box h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #ffffff;
+    }
+    #password-box p {
+      margin: 0 0 15px 0;
+      color: #b9bbbe;
+      font-size: 14px;
+    }
+    #password-input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 4px;
+      border: none;
+      background:#303339;
+      color:white;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    #password-submit {
+      width: 100%;
+      padding: 10px;
+      border-radius: 4px;
+      border: none;
+      background:#7289da;
+      color:white;
+      cursor:pointer;
+      font-weight: 600;
+    }
+    #password-error {
+      margin-top: 8px;
+      color: #ff6b6b;
+      font-size: 12px;
+      min-height: 16px;
+    }
   </style>
 </head>
 <body>
+  <!-- PASSWORD POPUP -->
+  <div id="password-overlay">
+    <div id="password-box">
+      <h2>Enter Access Password</h2>
+      <p>This client is locked. Enter the password to continue.</p>
+      <input type="password" id="password-input" placeholder="Password">
+      <button id="password-submit">Unlock</button>
+      <div id="password-error"></div>
+    </div>
+  </div>
+
+
+  <script>
+    (function () {
+      const CORRECT_PASSWORD = "frogisafish";
+      const STORAGE_KEY = "discord_app_unlocked";
+
+
+      function unlock() {
+        localStorage.setItem(STORAGE_KEY, "true");
+        const overlay = document.getElementById("password-overlay");
+        if (overlay) overlay.style.display = "none";
+      }
+
+
+      function handleSubmit() {
+        const input = document.getElementById("password-input");
+        const error = document.getElementById("password-error");
+        const value = (input.value || "").trim();
+        if (value === CORRECT_PASSWORD) {
+          unlock();
+        } else {
+          error.textContent = "Incorrect password. Try again.";
+          input.value = "";
+          input.focus();
+        }
+      }
+
+
+      // If already unlocked on this device, hide overlay immediately
+      if (localStorage.getItem(STORAGE_KEY) === "true") {
+        const overlay = document.getElementById("password-overlay");
+        if (overlay) overlay.style.display = "none";
+      } else {
+        // Wire up events
+        const btn = document.getElementById("password-submit");
+        const input = document.getElementById("password-input");
+        btn.addEventListener("click", handleSubmit);
+        input.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") handleSubmit();
+        });
+        input.focus();
+      }
+    })();
+  </script>
+
+
   <div class="sidebar">
     <h3>TEXT CHANNELS</h3>
     <div class="channel" onclick="switchChannel('general')"># general</div>
