@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Discord Clone</title>
+  <title>Discord</title>
   <style>
     body { margin:0; font-family:'Segoe UI',sans-serif; background:#36393f; color:white; display:flex; height:100vh; }
     .sidebar { width:240px; background:#2f3136; padding:15px; display:flex; flex-direction:column; }
@@ -11,149 +11,23 @@
     .channel:hover { background:#40444b; color:white; }
     .edit-profile { margin-top:auto; background:#40444b; text-align:center; padding:8px; border-radius:4px; cursor:pointer; }
     .edit-profile:hover { background:#5865f2; }
+    .admin-panel { margin-top:5px; background:#ff4444; text-align:center; padding:8px; border-radius:4px; cursor:pointer; color:white; }
+    .admin-panel:hover { background:#cc0000; }
     .chat { flex:1; display:flex; flex-direction:column; }
     .header { padding:15px; background:#2f3136; font-weight:bold; border-bottom:1px solid #202225; }
     .messages { flex:1; padding:20px; overflow-y:auto; }
-    .message { 
-      margin-bottom:10px; 
-      position: relative;
-      padding-right: 30px;
-      display: flex;
-      align-items: flex-start;
-    }
+    .message { margin-bottom:10px; }
     .username { font-weight:bold; cursor:pointer; color:#7289da; }
     .username:hover { text-decoration:underline; }
-    .message-controls {
-      position: absolute;
-      right: 0;
-      top: 0;
-      opacity: 0;
-      transition: opacity 0.2s;
-      display: flex;
-      gap: 5px;
-    }
-    .message:hover .message-controls { opacity: 1; }
-    .mute-btn {
-      background: #40444b;
-      border: none;
-      border-radius: 3px;
-      color: #b9bbbe;
-      padding: 4px 8px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .mute-btn:hover { background: #5865f2; color: white; }
-    .muted { opacity: 0.5; }
     .input-area { padding:10px 15px; background:#40444b; display:flex; }
     input { flex:1; padding:10px; border-radius:4px; border:none; background:#303339; color:white; }
     button { margin-left:10px; padding:10px 16px; border-radius:4px; border:none; background:#7289da; color:white; cursor:pointer; }
     .typing-indicator { font-size:12px; color:#b9bbbe; margin-left:5px; font-style:italic; }
-    
-    /* Password Popup */
-    .password-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0,0,0,0.9);
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .password-popup {
-      background: #36393f;
-      padding: 40px;
-      border-radius: 8px;
-      text-align: center;
-      max-width: 400px;
-      width: 90%;
-    }
-    .password-popup h2 { margin: 0 0 20px 0; color: white; }
-    .password-popup input {
-      width: 100%;
-      padding: 12px;
-      border-radius: 4px;
-      border: none;
-      background: #40444b;
-      color: white;
-      font-size: 16px;
-      margin-bottom: 15px;
-    }
-    .password-popup button {
-      width: 100%;
-      padding: 12px;
-      border-radius: 4px;
-      border: none;
-      background: #7289da;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    .password-popup button:hover { background: #5865f2; }
-    .password-error { color: #f04747; margin-top: 10px; font-size: 14px; }
-
-
-    /* Shop improvements */
-    .shop-item {
-      background: #40444b;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-      border-left: 4px solid #7289da;
-    }
-    .shop-item h3 {
-      margin: 0 0 10px 0;
-      color: #fff;
-    }
-    .shop-item p {
-      margin: 5px 0;
-      color: #b9bbbe;
-    }
-    .shop-btn {
-      width: 100%;
-      padding: 12px;
-      border-radius: 6px;
-      border: none;
-      font-size: 16px;
-      cursor: pointer;
-      margin-top: 10px;
-      transition: all 0.2s;
-    }
-    .buy-btn { background: #5865f2; color: white; }
-    .buy-btn:hover { background: #4752c4; }
-    .buy-btn:disabled { background: #36393f; cursor: not-allowed; }
-    .play-btn { background: #43b581; color: white; }
-    .play-btn:hover { background: #357a5a; }
-
-
-    /* Compact text stats */
-    .stats-text {
-      font-size: 16px;
-      line-height: 1.3;
-      color: #dcddde;
-    }
-    .stats-highlight {
-      color: #7289da;
-      font-weight: bold;
-    }
+    .mute-status { color: #ff6b6b; font-weight: bold; }
   </style>
 </head>
 <body>
-  <!-- Password Popup -->
-  <div id="passwordOverlay" class="password-overlay">
-    <div class="password-popup">
-      <h2>Enter Password to Access</h2>
-      <input type="password" id="passwordInput" placeholder="Password...">
-      <button id="submitPasswordBtn">Submit</button>
-      <div id="passwordError" class="password-error" style="display:none;"></div>
-    </div>
-  </div>
-
-
-  <div class="sidebar" style="display:none;" id="mainContent">
+  <div class="sidebar">
     <h3>TEXT CHANNELS</h3>
     <div class="channel" onclick="switchChannel('general')"># general</div>
     <div class="channel" onclick="switchChannel('gaming')"># gaming</div>
@@ -161,10 +35,11 @@
     <div class="channel" onclick="switchChannel('stats')"># stats</div>
     <div class="channel" onclick="switchChannel('shop')"># shop</div>
     <div class="edit-profile" onclick="openProfileEditor()">⚙ Edit Profile</div>
+    <div class="admin-panel" onclick="openAdminPanel()">🔇 Admin Panel</div>
   </div>
 
 
-  <div class="chat" style="display:none;" id="chatContent">
+  <div class="chat">
     <div class="header" id="channelName"># general</div>
     <div class="messages" id="messages"></div>
     <div class="input-area">
@@ -179,61 +54,19 @@
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 
-    const PASSWORD = "frogisafish";
-    let supabase;
-    let username;
-    let currentChannel = "general";
-    let channelSubscription = null;
-    let messageCanChatCache = new Map(); // Cache for can_chat status
-
-
-    function checkPassword() {
-      const input = document.getElementById("passwordInput");
-      const error = document.getElementById("passwordError");
-      const password = input.value.trim();
-      
-      if (password === PASSWORD) {
-        document.getElementById("passwordOverlay").style.display = "none";
-        document.getElementById("mainContent").style.display = "flex";
-        document.getElementById("chatContent").style.display = "flex";
-        initApp();
-      } else {
-        error.textContent = "Incorrect password! (Hint: frogisafish)";
-        error.style.display = "block";
-        input.value = "";
-        input.focus();
-      }
-    }
-
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const passwordInput = document.getElementById("passwordInput");
-      const submitBtn = document.getElementById("submitPasswordBtn");
-      
-      passwordInput.focus();
-      
-      submitBtn.addEventListener('click', checkPassword);
-      passwordInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          checkPassword();
-        }
-      });
-    });
-
-
-    async function initApp() {
-      supabase = createClient(
+    (async () => {
+      const supabase = createClient(
         "https://adrusttuicogkeplrcac.supabase.co",
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkcnVzdHR1aWNvZ2tlcGxyY2FjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NDQxMjUsImV4cCI6MjA4NjUyMDEyNX0.XnfYHjY0lR5JMBX855xsOtiC44oOW_bRtZbGmSo8ZB0"
       );
 
 
-      username = localStorage.getItem("username") || "";
-      
+      let username = localStorage.getItem("username") || "";
+      let currentChannel = "general";
+
+
       if (!username) {
-        while (!username) {
-          username = prompt("Enter username:");
-        }
+        while (!username) username = prompt("Enter username:");
         localStorage.setItem("username", username);
       }
 
@@ -245,440 +78,415 @@
         level: 1,
         coins: 0,
         owned_snake: false,
-        can_chat: true
+        muted_until: null,
+        mute_reason: null
       });
 
 
-      window.supabase = supabase;
-      window.username = username;
-      window.currentChannel = currentChannel;
-
-
-      await loadMessagesForChannel("general");
-      setupRealtime();
-    }
-
-
-    function setupRealtime() {
-      if (channelSubscription) {
-        supabase.removeChannel(channelSubscription);
+      function addMessage(usernameText, messageText) {
+        const div = document.createElement("div");
+        div.className = "message";
+        div.innerHTML = `<span class="username">${usernameText}</span> ${messageText}`;
+        const container = document.getElementById("messages");
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
       }
 
 
-      channelSubscription = supabase
-        .channel('messages')
-        .on('postgres_changes', 
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'messages',
-            filter: `channel=eq.${currentChannel}`
-          }, 
-          (payload) => {
-            console.log('Real-time message update for', currentChannel + ':', payload);
-            if (payload.eventType === 'INSERT') {
-              if (payload.new.channel === currentChannel) {
-                addNewMessage(payload.new);
-              }
-            } else if (payload.eventType === 'DELETE') {
-              if (payload.old.channel === currentChannel) {
-                removeMessage(payload.old.id);
-              }
-            }
-          }
-        )
-        .subscribe();
-    }
+      async function loadMessagesForChannel(channel) {
+        const container = document.getElementById("messages");
+        container.innerHTML = "Loading messages...";
 
 
-    async function addNewMessage(newMessage) {
-      if (newMessage.channel !== currentChannel) {
-        console.log('Ignoring message from different channel:', newMessage.channel);
-        return;
-      }
-      
-      const canChat = messageCanChatCache.get(newMessage.username) ?? await getCanChatStatus(newMessage.username);
-      createMessageElement(document.getElementById("messages"), newMessage.username, newMessage.text, !canChat, newMessage.id);
-    }
+        const { data, error } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("channel", channel)
+          .order("created_at", { ascending: true });
 
 
-    function removeMessage(messageId) {
-      const message = document.querySelector(`[data-message-id="${messageId}"]`);
-      if (message) {
-        message.remove();
-      }
-    }
+        container.innerHTML = "";
 
 
-    window.toggleMute = async function(targetUser) {
-      console.log("Toggling mute for:", targetUser);
-      
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("can_chat")
-        .eq("username", targetUser)
-        .maybeSingle();
-
-
-      const newCanChat = !(profile?.can_chat === true);
-      
-      const { error } = await supabase
-        .from("profiles")
-        .update({ 
-          can_chat: newCanChat 
-        })
-        .eq("username", targetUser);
-
-
-      if (error) {
-        console.error("Database error:", error);
-        alert("Failed to toggle mute: " + error.message);
-        return;
-      }
-
-
-      messageCanChatCache.set(targetUser, newCanChat); // Update cache
-      if (['general', 'gaming', 'coding'].includes(currentChannel)) {
-        await loadMessagesForChannel(currentChannel);
-      }
-    };
-
-
-    async function getCanChatStatus(user) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("can_chat")
-        .eq("username", user)
-        .maybeSingle();
-      const canChat = data ? data.can_chat : true;
-      messageCanChatCache.set(user, canChat); // Cache result
-      return canChat;
-    }
-
-
-    function createMessageElement(container, usernameText, messageText, isMuted, messageId = null) {
-      const div = document.createElement("div");
-      div.className = `message ${isMuted ? 'muted' : ''}`;
-      div.dataset.messageId = messageId;
-      
-      const buttonIcon = isMuted ? '🔊' : '🔇';
-      
-      div.innerHTML = `
-        <span class="username">${usernameText}</span> ${messageText}
-        <div class="message-controls">
-          <button class="mute-btn" onclick="toggleMute('${usernameText}')">${buttonIcon}</button>
-        </div>
-      `;
-      
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
-    }
-
-
-    async function loadMessagesForChannel(channel) {
-      const container = document.getElementById("messages");
-      
-      if (channel === "stats") {
-        loadStats();
-        return;
-      }
-      if (channel === "shop") {
-        loadShop();
-        return;
-      }
-      
-      container.innerHTML = "Loading messages...";
-
-
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("channel", channel)
-        .order("created_at", { ascending: true });
-
-
-      container.innerHTML = "";
-
-
-      if (error || !data) {
-        createMessageElement(container, "System", "Could not load messages.", false);
-        setupRealtime();
-        return;
-      }
-
-
-      // ✅ FIXED: Get ALL unique usernames FIRST (one query)
-      const uniqueUsernames = [...new Set(data.map(msg => msg.username))];
-      
-      // Get can_chat status for ALL users simultaneously
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("username, can_chat")
-        .in("username", uniqueUsernames);
-
-
-      // Create lookup map for instant access
-      const canChatMap = new Map();
-      profiles?.forEach(profile => {
-        canChatMap.set(profile.username, profile.can_chat);
-        messageCanChatCache.set(profile.username, profile.can_chat);
-      });
-
-
-      // Create ALL messages instantly (no sequential awaits)
-      data.forEach(msg => {
-        const canChat = canChatMap.get(msg.username) ?? true;
-        createMessageElement(container, msg.username, msg.text, !canChat, msg.id);
-      });
-
-
-      container.scrollTop = container.scrollHeight;
-      setupRealtime();
-    }
-
-
-    window.sendMessage = async function() {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("can_chat")
-        .eq("username", username)
-        .maybeSingle();
-
-
-      if (!profile?.can_chat) {
-        alert("You have been muted and cannot send messages!");
-        return;
-      }
-
-
-      const input = document.getElementById("messageInput");
-      const text = input.value.trim();
-      if (!text) return;
-
-
-      if (currentChannel === "stats" || currentChannel === "shop") {
-        alert("You cannot send messages in this channel!");
-        return;
-      }
-
-
-      try {
-        const { data, error } = await supabase.from("messages").insert({
-          channel: currentChannel,
-          username,
-          text
-        }).select();
-
-
-        if (!error && data[0]) {
-          input.value = "";
+        if (error || !data) {
+          addMessage("System", "Could not load messages.");
+          return;
         }
-      } catch (e) {
-        console.error("Failed to save message:", e);
-        createMessageElement(document.getElementById("messages"), username, text, false);
-        input.value = "";
-      }
-    };
 
 
-    window.switchChannel = async function(channel) {
-      currentChannel = channel;
-      document.getElementById("channelName").innerText =
-        channel === "stats" ? "# stats" :
-        channel === "shop" ? "# shop" :
-        "# " + channel;
-
-
-      const input = document.getElementById("messageInput");
-      input.placeholder =
-        channel === "stats" || channel === "shop"
-          ? ""
-          : "Message #" + channel;
-
-
-      await loadMessagesForChannel(channel);
-    };
-
-
-    window.loadStats = async function() {
-      const container = document.getElementById("messages");
-      container.innerHTML = "";
-
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username,xp,level,coins")
-        .eq("username", username)
-        .maybeSingle();
-
-
-      if (!profile) {
-        createMessageElement(container, "System", "Could not load stats.", false);
-        return;
-      }
-
-
-      const xpToNext = profile.level * 100 - profile.xp;
-      
-      const statsText = document.createElement("div");
-      statsText.className = "stats-text";
-      statsText.innerHTML = `
-<span class="stats-highlight">Username:</span> ${profile.username}<br>
-<span class="stats-highlight">Level:</span> ${profile.level}<br>
-<span class="stats-highlight">XP:</span> ${profile.xp}<br>
-<span class="stats-highlight">XP to Next Level:</span> ${xpToNext}<br>
-<span class="stats-highlight">Coins:</span> ${profile.coins}
-      `;
-      
-      container.appendChild(statsText);
-    };
-
-
-    window.loadShop = async function() {
-      const container = document.getElementById("messages");
-      container.innerHTML = "Loading shop...";
-
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("coins, owned_snake")
-        .eq("username", username)
-        .maybeSingle();
-
-
-      container.innerHTML = "";
-
-
-      if (!profile) {
-        createMessageElement(container, "System", "Could not load shop.", false);
-        return;
-      }
-
-
-      const snakeDiv = document.createElement("div");
-      snakeDiv.className = "shop-item";
-      
-      if (profile.owned_snake) {
-        snakeDiv.innerHTML = `
-          <h3>🐍 Snake Game</h3>
-          <p>Play the classic Snake game!</p>
-          <button id="playSnakeBtn" class="shop-btn play-btn">Play Snake (Fullscreen)</button>
-        `;
-      } else {
-        snakeDiv.innerHTML = `
-          <h3>🐍 Snake Game</h3>
-          <p>Play the classic Snake game!</p>
-          <p><strong>Cost: ${profile.coins >= 25 ? '25 coins' : `Need ${25 - profile.coins} more coins`}</strong></p>
-          <button id="buySnakeBtn" class="shop-btn buy-btn" ${profile.coins < 25 ? 'disabled' : ''}>
-            ${profile.coins >= 25 ? 'Buy Snake (25 coins)' : 'Not enough coins'}
-          </button>
-        `;
-      }
-      
-      container.appendChild(snakeDiv);
-      
-      if (profile.owned_snake) {
-        document.getElementById("playSnakeBtn").onclick = openSnakeFullscreen;
-      } else {
-        document.getElementById("buySnakeBtn").onclick = buySnake;
-      }
-    };
-
-
-    window.buySnake = async function() {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("coins, owned_snake")
-        .eq("username", username)
-        .maybeSingle();
-      
-      if (!p || p.owned_snake || p.coins < 25) {
-        alert(p?.owned_snake ? "You already own Snake!" : "You need 25 coins!");
-        await loadShop();
-        return;
-      }
-
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          coins: p.coins - 25,
-          owned_snake: true
-        })
-        .eq("username", username);
-
-
-      if (error) {
-        alert("Purchase failed.");
-        return;
-      }
-
-
-      alert("You bought Snake! Opening...");
-      openSnakeFullscreen();
-      await loadShop();
-    };
-
-
-    window.openSnakeFullscreen = function() {
-      let overlay = document.getElementById("snake-fullscreen-overlay");
-      if (overlay) return;
-
-
-      overlay = document.createElement("div");
-      overlay.id = "snake-fullscreen-overlay";
-      overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: rgba(0,0,0,0.9); z-index: 9999; overflow: hidden;
-      `;
-
-
-      const closeBtn = document.createElement("button");
-      closeBtn.textContent = "❌";
-      closeBtn.style.cssText = `
-        position: absolute; top: 8px; right: 15px; width: 40px; height: 40px;
-        border-radius: 50%; border: none; cursor: pointer; background: #7289da;
-        color: white; font-size: 20px; font-weight: bold; z-index: 10000;
-        display: flex; align-items: center; justify-content: center;
-      `;
-      closeBtn.onclick = () => document.body.removeChild(overlay);
-
-
-      const frame = document.createElement("iframe");
-      frame.src = "https://frogdafish.github.io/Snek";
-      frame.style.cssText = `
-        position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-        border: none; display: block;
-      `;
-
-
-      overlay.appendChild(closeBtn);
-      overlay.appendChild(frame);
-      document.body.appendChild(overlay);
-    };
-
-
-    window.openProfileEditor = async function() {
-      const newUsername = prompt("Enter your new username:");
-      if (!newUsername) return;
-
-
-      await supabase.from("profiles").update({ username: newUsername }).eq("username", username);
-      localStorage.setItem("username", newUsername);
-      username = newUsername;
-      alert("Username updated! Reloading...");
-      location.reload();
-    };
-
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const messageInput = document.getElementById('messageInput');
-      if (messageInput) {
-        messageInput.addEventListener('keypress', function(e) {
-          if (e.key === 'Enter') sendMessage();
+        data.forEach((msg) => {
+          addMessage(msg.username, msg.text);
         });
       }
-    });
+
+
+      async function sendMessage() {
+        const input = document.getElementById("messageInput");
+        const text = input.value.trim();
+        if (!text) return;
+
+
+        if (currentChannel === "stats" || currentChannel === "shop") {
+          alert("You cannot send messages in this channel!");
+          return;
+        }
+
+
+        // Check if user is muted before sending
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("muted_until")
+          .eq("username", username)
+          .single();
+
+
+        const isMuted = profile?.muted_until && new Date(profile.muted_until) > new Date();
+        if (isMuted) {
+          alert("You are muted and cannot send messages!");
+          return;
+        }
+
+
+        addMessage(username, text);
+
+
+        try {
+          await supabase.from("messages").insert({
+            channel: currentChannel,
+            username,
+            text
+          });
+        } catch (e) {}
+
+
+        input.value = "";
+      }
+
+
+      async function loadStats() {
+        const container = document.getElementById("messages");
+        container.innerHTML = "Loading stats...";
+
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("username,xp,level,coins,owned_snake,muted_until,mute_reason")
+          .eq("username", username)
+          .single();
+
+
+        container.innerHTML = "";
+
+
+        if (error || !profile) {
+          addMessage("System", "Could not load stats.");
+          return;
+        }
+
+
+        const xpToNext = profile.level * 100 - profile.xp;
+        const isMuted = profile.muted_until && new Date(profile.muted_until) > new Date();
+        const muteStatus = isMuted ? 
+          `<span class="mute-status">🔇 MUTED until ${new Date(profile.muted_until).toLocaleString()}<br><em>${profile.mute_reason || 'No reason specified'}</em></span>` : 
+          '✅ Not muted';
+
+
+        const statsDiv = document.createElement("div");
+        statsDiv.className = "message";
+        statsDiv.innerHTML = `
+          <strong>👤 ${profile.username}</strong><br>
+          <strong>⭐ Level:</strong> ${profile.level}<br>
+          <strong>⚡ XP:</strong> ${profile.xp}<br>
+          <strong>XP to next level:</strong> ${xpToNext}<br>
+          <strong>💰 Coins:</strong> ${profile.coins}<br>
+          <strong>🐍 Owns Snake:</strong> ${profile.owned_snake ? "Yes" : "No"}<br>
+          <strong>🔇 Mute Status:</strong> ${muteStatus}
+        `;
+        container.appendChild(statsDiv);
+      }
+
+
+      function createSnakeOverlay() {
+        let overlay = document.getElementById("snake-fullscreen-overlay");
+        if (overlay) return overlay;
+
+
+        overlay = document.createElement("div");
+        overlay.id = "snake-fullscreen-overlay";
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.9);
+          z-index: 9999;
+          overflow: hidden;
+        `;
+
+
+        const closeBtn = document.createElement("button");
+        closeBtn.textContent = "❌";
+        closeBtn.style.cssText = `
+          position: absolute;
+          top: 8px;
+          right: 15px;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+          background: #7289da;
+          color: white;
+          font-size: 20px;
+          font-weight: bold;
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        `;
+        closeBtn.onclick = () => {
+          document.body.removeChild(overlay);
+        };
+
+
+        const frame = document.createElement("iframe");
+        frame.src = "https://frogdafish.github.io/Snek";
+        frame.style.cssText = `
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          border: none;
+          display: block;
+        `;
+
+
+        overlay.appendChild(closeBtn);
+        overlay.appendChild(frame);
+        document.body.appendChild(overlay);
+        return overlay;
+      }
+
+
+      function openSnakeFullscreen() {
+        createSnakeOverlay();
+      }
+
+
+      async function loadShop() {
+        const container = document.getElementById("messages");
+        container.innerHTML = "Loading shop...";
+
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("coins, owned_snake")
+          .eq("username", username)
+          .single();
+
+
+        container.innerHTML = "";
+
+
+        const snakeDiv = document.createElement("div");
+        snakeDiv.className = "message";
+
+
+        if (profile?.owned_snake) {
+          snakeDiv.innerHTML = `
+            <strong>Snake Game</strong><br>
+            Play the classic Snake game!<br>
+            <button id="playSnakeBtn">Play Snake (Fullscreen)</button>
+          `;
+        } else {
+          snakeDiv.innerHTML = `
+            <strong>Snake Game</strong><br>
+            Play the classic Snake game! Cost: 25 coins<br>
+            <button id="buySnakeBtn">Buy Snake (25 coins)</button>
+          `;
+        }
+
+
+        container.appendChild(snakeDiv);
+
+
+        if (profile?.owned_snake) {
+          document.getElementById("playSnakeBtn").onclick = openSnakeFullscreen;
+        } else {
+          document.getElementById("buySnakeBtn").onclick = async () => {
+            const { data: p } = await supabase
+              .from("profiles")
+              .select("coins, owned_snake")
+              .eq("username", username)
+              .single();
+            if (!p) return;
+
+
+            if (p.owned_snake) {
+              alert("You already own Snake!");
+              await loadShop();
+              return;
+            }
+            if (p.coins < 25) {
+              alert("You need 25 coins to buy Snake!");
+              return;
+            }
+
+
+            const { error } = await supabase
+              .from("profiles")
+              .update({
+                coins: p.coins - 25,
+                owned_snake: true
+              })
+              .eq("username", username);
+
+
+            if (error) {
+              alert("Purchase failed.");
+              return;
+            }
+
+
+            alert("You bought Snake! Opening...");
+            openSnakeFullscreen();
+            await loadShop();
+          };
+        }
+      }
+
+
+      async function openProfileEditor() {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, bio, muted_until, mute_reason')
+          .eq('username', username)
+          .single();
+
+
+        const muteInfo = profile.muted_until && new Date(profile.muted_until) > new Date() ? 
+          `🔇 MUTED until ${new Date(profile.muted_until).toLocaleString()}\nReason: ${profile.mute_reason || 'No reason'}` : 
+          '✅ Not muted';
+
+
+        const newBio = prompt(`Your Profile:\n\nUsername: ${profile.username}\nBio: ${profile.bio || 'None'}\nMute Status:\n${muteInfo}\n\nEnter NEW bio (leave blank to keep current):`);
+        
+        if (newBio !== null) {
+          await supabase.from('profiles').update({ bio: newBio || null }).eq('username', username);
+          if (currentChannel === 'stats') await loadStats();
+          alert('Profile updated!');
+        }
+      }
+
+
+      async function openAdminPanel() {
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('username, muted_until, mute_reason, xp, coins, owned_snake');
+
+
+        let adminHTML = '🔧 ADMIN PANEL - MUTE/UNMUTE USERS\n\n';
+        allProfiles?.forEach(p => {
+          const isMuted = p.muted_until && new Date(p.muted_until) > new Date();
+          adminHTML += `${p.username.padEnd(15)} | ${p.xp.toString().padEnd(5)}XP | ${p.coins.toString().padEnd(5)}Coins | ${isMuted ? '🔇 MUTED' : '✅ OK'}\n`;
+        });
+
+
+        const target = prompt(adminHTML + '\n\nEnter username to manage:');
+        if (!target) return;
+
+
+        const { data: targetProfile } = await supabase
+          .from('profiles')
+          .select('username, muted_until')
+          .eq('username', target)
+          .single();
+
+
+        if (!targetProfile) {
+          alert('User not found!');
+          return;
+        }
+
+
+        const action = prompt('Choose action:\n1 = Mute 1 hour\n2 = Mute 24 hours\n3 = Unmute\n\nEnter 1, 2, or 3:');
+        
+        let updateData = { mute_reason: null };
+        
+        if (action === '1') {
+          updateData.muted_until = new Date(Date.now() + 60*60*1000).toISOString();
+          updateData.mute_reason = 'Admin mute (1hr)';
+        } else if (action === '2') {
+          updateData.muted_until = new Date(Date.now() + 24*60*60*1000).toISOString();
+          updateData.mute_reason = 'Admin mute (24hr)';
+        } else if (action === '3') {
+          updateData.muted_until = null;
+        } else {
+          alert('Invalid action! Use 1, 2, or 3.');
+          return;
+        }
+
+
+        const { error } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('username', target);
+
+
+        if (error) {
+          alert('Failed to update user!');
+        } else {
+          alert(`✅ ${target} ${action === '3' ? 'UNMUTED' : 'MUTED'} successfully!`);
+        }
+      }
+
+
+      function switchChannel(channel) {
+        currentChannel = channel;
+        document.getElementById("channelName").innerText =
+          channel === "stats" ? "# stats" :
+          channel === "shop" ? "# shop" :
+          "# " + channel;
+
+
+        const input = document.getElementById("messageInput");
+        input.placeholder =
+          channel === "stats" || channel === "shop"
+            ? ""
+            : "Message #" + channel;
+
+
+        const messages = document.getElementById("messages");
+        messages.innerHTML = "";
+
+
+        if (channel === "stats") {
+          loadStats();
+        } else if (channel === "shop") {
+          loadShop();
+        } else {
+          loadMessagesForChannel(channel);
+        }
+      }
+
+
+      window.sendMessage = sendMessage;
+      window.switchChannel = switchChannel;
+      window.openProfileEditor = openProfileEditor;
+      window.openAdminPanel = openAdminPanel;
+      window.openSnakeFullscreen = openSnakeFullscreen;
+
+
+      const messageInput = document.getElementById("messageInput");
+      messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+
+
+      await loadMessagesForChannel(currentChannel);
+    })();
   </script>
 </body>
 </html>
