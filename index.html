@@ -123,12 +123,10 @@
       }
 
 
-      // If already unlocked on this device, hide overlay immediately
       if (localStorage.getItem(STORAGE_KEY) === "true") {
         const overlay = document.getElementById("password-overlay");
         if (overlay) overlay.style.display = "none";
       } else {
-        // Wire up events
         const btn = document.getElementById("password-submit");
         const input = document.getElementById("password-input");
         btn.addEventListener("click", handleSubmit);
@@ -177,6 +175,53 @@
 
       let username = localStorage.getItem("username") || "";
       let currentChannel = "general";
+
+
+      // Helper to remove a message from the DOM when deleted
+      function removeMessageFromDom(usernameText, messageText) {
+        const container = document.getElementById("messages");
+        const nodes = Array.from(container.getElementsByClassName("message"));
+        for (const node of nodes) {
+          if (node.innerHTML === `<span class="username">${usernameText}</span> ${messageText}`) {
+            container.removeChild(node);
+            break;
+          }
+        }
+      }
+
+
+      // Realtime subscription to auto-update on insert and delete
+      const messagesChannel = supabase
+        .channel("realtime-messages")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages"
+          },
+          (payload) => {
+            const msg = payload.new;
+            if (msg.channel === currentChannel) {
+              addMessage(msg.username, msg.text);
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "messages"
+          },
+          (payload) => {
+            const msg = payload.old;
+            if (msg.channel === currentChannel) {
+              removeMessageFromDom(msg.username, msg.text);
+            }
+          }
+        )
+        .subscribe();
 
 
       if (!username) {
@@ -246,7 +291,6 @@
         }
 
 
-        // Check if user is muted before sending
         const { data: profile } = await supabase
           .from("profiles")
           .select("muted_until")
@@ -261,7 +305,7 @@
         }
 
 
-        addMessage(username, text);
+        // REMOVED: No more local addMessage() - let realtime handle it
 
 
         try {
@@ -473,24 +517,14 @@
 
 
       async function openProfileEditor() {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username, bio, muted_until, mute_reason')
-          .eq('username', username)
-          .single();
-
-
-        const muteInfo = profile.muted_until && new Date(profile.muted_until) > new Date() ? 
-          `🔇 MUTED until ${new Date(profile.muted_until).toLocaleString()}\nReason: ${profile.mute_reason || 'No reason'}` : 
-          '✅ Not muted';
-
-
-        const newBio = prompt(`Your Profile:\n\nUsername: ${profile.username}\nBio: ${profile.bio || 'None'}\nMute Status:\n${muteInfo}\n\nEnter NEW bio (leave blank to keep current):`);
+        const newUsername = prompt('Enter new username (leave blank to keep current):');
         
-        if (newBio !== null) {
-          await supabase.from('profiles').update({ bio: newBio || null }).eq('username', username);
-          if (currentChannel === 'stats') await loadStats();
-          alert('Profile updated!');
+        if (newUsername !== null && newUsername.trim() !== '') {
+          const trimmedUsername = newUsername.trim();
+          await supabase.from('profiles').update({ username: trimmedUsername }).eq('username', username);
+          localStorage.setItem("username", trimmedUsername);
+          username = trimmedUsername;
+          alert('Username updated!');
         }
       }
 
